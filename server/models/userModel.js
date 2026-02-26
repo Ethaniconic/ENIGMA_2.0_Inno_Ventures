@@ -8,8 +8,8 @@ const userSchema = new mongoose.Schema({
     },
     mobile: {
         type: String,
-        required: true,
-        trim: true
+        trim: true,
+        sparse: true,
     },
     age: {
         type: Number,
