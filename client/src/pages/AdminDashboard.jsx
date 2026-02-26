@@ -1,17 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { LogOut, Users, Stethoscope, ShieldCheck, BarChart2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import './Dashboard.css';
-
-// Demo stats — replace with real API once admin endpoints are ready
-const DEMO_USERS = [
-    { id: 1, name: 'Riya Desai', role: 'user', joined: '2h ago' },
-    { id: 2, name: 'Dr. Arjun M.', role: 'doctor', joined: '1d ago' },
-    { id: 3, name: 'Sunita Rao', role: 'user', joined: '2d ago' },
-    { id: 4, name: 'Dr. Priya K.', role: 'doctor', joined: '3d ago' },
-    { id: 5, name: 'Test Admin', role: 'admin', joined: '5d ago' },
-];
 
 const ROLE_ICON = {
     user: <Users size={14} />,
@@ -22,7 +13,20 @@ const ROLE_ICON = {
 const AdminDashboard = () => {
     const navigate = useNavigate();
     const user = JSON.parse(localStorage.getItem('user') || '{}');
-    const [users] = useState(DEMO_USERS);
+    const [users, setUsers] = useState([]);
+
+    useEffect(() => {
+        const fetchUsers = async () => {
+            try {
+                const response = await fetch('http://localhost:3000/api/users/recent');
+                const data = await response.json();
+                setUsers(data);
+            } catch (err) {
+                console.error('Failed to fetch users:', err);
+            }
+        };
+        fetchUsers();
+    }, []);
 
     const handleLogout = () => {
         localStorage.removeItem('token');
@@ -85,11 +89,11 @@ const AdminDashboard = () => {
                     <p className="dash-section-title">Registered Users</p>
                     <div className="dash-card">
                         {users.map(u => (
-                            <div key={u.id} className="list-item">
-                                <div className="list-avatar">{u.name.charAt(0)}</div>
+                            <div key={u._id} className="list-item">
+                                <div className="list-avatar">{u.name.charAt(0).toUpperCase()}</div>
                                 <div className="list-info">
                                     <div className="list-name">{u.name}</div>
-                                    <div className="list-meta">Joined {u.joined}</div>
+                                    <div className="list-meta">Joined {new Date(u.createdAt).toLocaleDateString()}</div>
                                 </div>
                                 {roleLabel(u.role)}
                             </div>

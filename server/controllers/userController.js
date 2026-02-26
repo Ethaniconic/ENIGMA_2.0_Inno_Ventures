@@ -110,4 +110,14 @@ const loginUser = async (req, res) => {
     }
 };
 
-module.exports = { registerUser, loginUser };
+const getRecentUsers = async (req, res) => {
+    try {
+        const users = await User.find({}).sort({ createdAt: -1 }).limit(10).select('-password');
+        res.json(users);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server Error fetching users' });
+    }
+};
+
+module.exports = { registerUser, loginUser, getRecentUsers };
