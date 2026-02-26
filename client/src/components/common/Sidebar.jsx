@@ -4,10 +4,9 @@ import { LayoutDashboard, Activity, FileCheck, BookOpen } from 'lucide-react';
 
 const Sidebar = () => {
     const navItems = [
-        { path: '/dashboard/doctor', label: 'Dashboard', icon: LayoutDashboard },
+        { path: '/dashboard/doctor', label: 'Patient Assessment', icon: LayoutDashboard },
         { path: '/dashboard/doctor/workflow', label: 'Screening Workflow', icon: Activity },
-        { path: '/dashboard/doctor/accuracy-report', label: 'Accuracy Report', icon: FileCheck },
-        { path: '/dashboard/doctor/validation-framework', label: 'Validation Framework', icon: BookOpen },
+        { path: '/dashboard/doctor/model-report', label: 'Model Metrics', icon: FileCheck }
     ];
 
     return (
