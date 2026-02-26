@@ -36,7 +36,6 @@ const DocumentUploadDropzone = ({ label, dropzone, file }) => (
 );
 
 const DoctorDashboard = () => {
-    const navigate = useNavigate();
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     const [patients] = useState(DEMO_ASSIGNED_PATIENTS);
 
@@ -205,7 +204,7 @@ const DoctorDashboard = () => {
                         <LogOut size={14} style={{ display: 'inline', marginRight: 4 }} /> Logout
                     </button>
                 </div>
-            </nav>
+            </div>
 
             <main className="dash-main" style={{ maxWidth: '800px', filter: !profileComplete ? 'blur(4px)' : 'none', pointerEvents: !profileComplete ? 'none' : 'auto' }}>
                 <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
@@ -227,6 +226,8 @@ const DoctorDashboard = () => {
                             <div style={{ fontSize: 13, color: 'var(--text-dark)' }}>This list strictly shows patients who have explicitly chosen you as their consulting specialist.</div>
                         </div>
                     </div>
+                </form>
+            )}
 
                     <p className="dash-section-title">My Assigned Patients ({patients.length})</p>
 

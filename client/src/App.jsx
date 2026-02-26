@@ -5,6 +5,10 @@ import Login from './pages/Login';
 import PatientDashboard from './pages/PatientDashboard';
 import DoctorDashboard from './pages/DoctorDashboard';
 import AdminDashboard from './pages/AdminDashboard';
+import Layout from './components/common/Layout';
+import Workflow from './pages/Workflow';
+import PatientCheckupForm from './components/dashboard/PatientCheckupForm';
+import ModelReport from './pages/ModelReport';
 
 // Returns the correct dashboard path based on stored user role
 const getDashboardPath = () => {
@@ -38,7 +42,14 @@ function App() {
 
         {/* Role-specific dashboards */}
         <Route path="/dashboard/patient" element={<ProtectedRoute expectedRole="user"><PatientDashboard /></ProtectedRoute>} />
-        <Route path="/dashboard/doctor" element={<ProtectedRoute expectedRole="doctor"><DoctorDashboard /></ProtectedRoute>} />
+
+        {/* Clinician Portal (Doctor) */}
+        <Route path="/dashboard/doctor" element={<ProtectedRoute expectedRole="doctor"><Layout /></ProtectedRoute>}>
+          <Route index element={<PatientCheckupForm />} />
+          <Route path="workflow" element={<Workflow />} />
+          <Route path="model-report" element={<ModelReport />} />
+        </Route>
+
         <Route path="/dashboard/admin" element={<ProtectedRoute expectedRole="admin"><AdminDashboard /></ProtectedRoute>} />
 
         {/* Default redirect */}
