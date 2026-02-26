@@ -1,5 +1,8 @@
-Initial commit
+# Initial commit
 
+## Project Structure
+
+```text
 AarogyaMukh-App/
 │
 ├── frontend/                 # React (Vite) + Tailwind + PWA capabilities
@@ -26,3 +29,4 @@ AarogyaMukh-App/
     ├── api.py                # FastAPI server handling the multimodal fusion
     ├── train_vision.py       # Script to train the image classifier
     └── requirements.txt
+```
