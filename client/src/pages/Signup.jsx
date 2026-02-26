@@ -1,181 +1,265 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, ShieldCheck, Stethoscope, Lock, Phone, Calendar, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
+import {
+  User, ShieldCheck, Stethoscope, Lock, Phone,
+  Calendar, ArrowRight, IdCard, Building, BriefcaseMedical
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
-import './auth.css';
-
-
-const API_URL = 'http://localhost:3000/api';
+import './Signup.css';
 
 const Signup = () => {
-  const [role, setRole] = useState('user');
-  const [formData, setFormData] = useState({ name: '', age: '', mobile: '', password: '' });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [role, setRole] = useState('user'); // 'user', 'doctor', or 'admin'
+
+  // Consolidated state for all possible fields
+  const [formData, setFormData] = useState({
+    name: '',
+    mobile: '',
+    password: '',
+    age: '',              // Patient specific
+    licenseNumber: '',    // Doctor specific
+    specialization: '',   // Doctor specific
+    hospital: '',         // Doctor specific
+    adminId: '',          // Admin specific
+    department: ''        // Admin specific
+  });
 
   const handleInputChange = (e) => {
-    setError('');
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleRoleChange = (newRole) => {
-    setRole(newRole);
-    setError('');
-  };
-
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-    setLoading(true);
-    setError('');
-    setSuccess('');
-
-    try {
-      const res = await fetch(`${API_URL}/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, age: Number(formData.age), role }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.message || 'Registration failed. Please try again.');
-      } else {
-        setSuccess(`Account created! Welcome, ${data.user.name}.`);
-        setFormData({ name: '', age: '', mobile: '', password: '' });
-      }
-    } catch (err) {
-      setError('Could not connect to server. Please check your connection.');
-    } finally {
-      setLoading(false);
-    }
+    console.log(`Registering ${role}:`, formData);
+    // Add API submission logic here
   };
-
-  const roles = [
-    { key: 'user', label: 'Patient', icon: <User size={16} /> },
-    { key: 'doctor', label: 'Doctor', icon: <Stethoscope size={16} /> },
-    { key: 'admin', label: 'Admin', icon: <ShieldCheck size={16} /> },
-  ];
 
   return (
-    <div className="auth-container">
+    <div className="signup-container">
       <motion.div
-        className="auth-card"
-        initial={{ opacity: 0, y: 24 }}
+        className="signup-card"
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: 'easeOut' }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
       >
-        {/* Header */}
-        <div className="auth-header">
-          <div className="auth-logo">
-            <span className="logo-icon">🩺</span>
-          </div>
-          <h1 className="auth-title">Create Account</h1>
-          <p className="auth-subtitle">Select your role and register below.</p>
-        </div>
+        <div className="signup-header">
+          <h2 className="signup-title">Create Account</h2>
+          <p className="signup-subtitle">Select your role and enter your details below.</p>
 
-        {/* Role Selector */}
-        <div className="role-selector">
-          {roles.map(({ key, label, icon }) => (
+          {/* Role Selection Toggle */}
+          <div className="role-selector">
             <button
-              key={key}
               type="button"
-              className={`role-btn ${role === key ? 'active' : ''}`}
-              onClick={() => handleRoleChange(key)}
+              className={`role-btn ${role === 'user' ? 'active' : ''}`}
+              onClick={() => setRole('user')}
             >
-              {icon} {label}
+              <User size={16} /> Patient
             </button>
-          ))}
+            <button
+              type="button"
+              className={`role-btn ${role === 'doctor' ? 'active' : ''}`}
+              onClick={() => setRole('doctor')}
+            >
+              <Stethoscope size={16} /> Doctor
+            </button>
+            <button
+              type="button"
+              className={`role-btn ${role === 'admin' ? 'active' : ''}`}
+              onClick={() => setRole('admin')}
+            >
+              <ShieldCheck size={16} /> Admin
+            </button>
+          </div>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="auth-form">
+        <form onSubmit={handleSubmit} className="signup-form">
           <AnimatePresence mode="wait">
-            {(error || success) && (
-              <motion.div
-                key={error ? 'error' : 'success'}
-                className={`alert-box ${error ? 'alert-error' : 'alert-success'}`}
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-              >
-                {error ? <AlertCircle size={16} /> : <CheckCircle2 size={16} />}
-                <span>{error || success}</span>
-              </motion.div>
-            )}
+            <motion.div
+              key={role} // Re-animates smoothly when role changes
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 10 }}
+              transition={{ duration: 0.2 }}
+              className="input-group"
+            >
+              {/* COMMON FIELD: Full Name */}
+              <div className="input-with-icon">
+                <User className="field-icon" size={18} />
+                <input
+                  type="text"
+                  name="name"
+                  placeholder="Full Name"
+                  className="form-input"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+
+              {/* DYNAMIC FIELDS: Based on Role */}
+              {role === 'user' && (
+                <div className="input-row">
+                  <div className="input-with-icon flex-1">
+                    <Calendar className="field-icon" size={18} />
+                    <input
+                      type="number"
+                      name="age"
+                      placeholder="Age"
+                      className="form-input"
+                      value={formData.age}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                  <div className="input-with-icon flex-2">
+                    <Phone className="field-icon" size={18} />
+                    <input
+                      type="tel"
+                      name="mobile"
+                      placeholder="Mobile Number"
+                      className="form-input"
+                      value={formData.mobile}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                </div>
+              )}
+
+              {role === 'doctor' && (
+                <>
+                  <div className="input-row">
+                    <div className="input-with-icon flex-1">
+                      <IdCard className="field-icon" size={18} />
+                      <input
+                        type="text"
+                        name="licenseNumber"
+                        placeholder="Medical License No."
+                        className="form-input"
+                        value={formData.licenseNumber}
+                        onChange={handleInputChange}
+                        required
+                      />
+                    </div>
+                    <div className="input-with-icon flex-1">
+                      <Phone className="field-icon" size={18} />
+                      <input
+                        type="tel"
+                        name="mobile"
+                        placeholder="Mobile Number"
+                        className="form-input"
+                        value={formData.mobile}
+                        onChange={handleInputChange}
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="input-row">
+                    <div className="input-with-icon flex-1">
+                      <BriefcaseMedical className="field-icon" size={18} />
+                      <select
+                        name="specialization"
+                        className="form-input form-select"
+                        value={formData.specialization}
+                        onChange={handleInputChange}
+                        required
+                      >
+                        <option value="" disabled>Specialization</option>
+                        <option value="oncologist">Surgical Oncologist</option>
+                        <option value="radiation">Radiation Oncologist</option>
+                        <option value="medical">Medical Oncologist</option>
+                        <option value="dentist">Maxillofacial Surgeon / Dentist</option>
+                      </select>
+                    </div>
+                    <div className="input-with-icon flex-1">
+                      <Building className="field-icon" size={18} />
+                      <input
+                        type="text"
+                        name="hospital"
+                        placeholder="Hospital/Clinic"
+                        className="form-input"
+                        value={formData.hospital}
+                        onChange={handleInputChange}
+                        required
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {role === 'admin' && (
+                <>
+                  <div className="input-row">
+                    <div className="input-with-icon flex-1">
+                      <IdCard className="field-icon" size={18} />
+                      <input
+                        type="text"
+                        name="adminId"
+                        placeholder="Admin / Employee ID"
+                        className="form-input"
+                        value={formData.adminId}
+                        onChange={handleInputChange}
+                        required
+                      />
+                    </div>
+                    <div className="input-with-icon flex-1">
+                      <Phone className="field-icon" size={18} />
+                      <input
+                        type="tel"
+                        name="mobile"
+                        placeholder="Mobile Number"
+                        className="form-input"
+                        value={formData.mobile}
+                        onChange={handleInputChange}
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="input-with-icon">
+                    <Building className="field-icon" size={18} />
+                    <select
+                      name="department"
+                      className="form-input form-select"
+                      value={formData.department}
+                      onChange={handleInputChange}
+                      required
+                    >
+                      <option value="" disabled>Select Department</option>
+                      <option value="it">IT Support</option>
+                      <option value="records">Medical Records</option>
+                      <option value="management">Hospital Management</option>
+                    </select>
+                  </div>
+                </>
+              )}
+
+              {/* COMMON FIELD: Password */}
+              <div className="input-with-icon">
+                <Lock className="field-icon" size={18} />
+                <input
+                  type="password"
+                  name="password"
+                  placeholder="Create Password"
+                  className="form-input"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+
+            </motion.div>
           </AnimatePresence>
 
-          {/* Full Name */}
-          <div className="input-with-icon">
-            <User className="field-icon" size={18} />
-            <input
-              type="text"
-              name="name"
-              placeholder="Full Name"
-              className="form-input"
-              value={formData.name}
-              onChange={handleInputChange}
-              required
-            />
+          <div className="signup-footer">
+            <button type="submit" className="btn-submit">
+              Register as {role.charAt(0).toUpperCase() + role.slice(1)}
+              <ArrowRight size={18} />
+            </button>
           </div>
 
-          {/* Age + Mobile Row */}
-          <div className="input-row">
-            <div className="input-with-icon flex-1">
-              <Calendar className="field-icon" size={18} />
-              <input
-                type="number"
-                name="age"
-                placeholder="Age"
-                className="form-input"
-                value={formData.age}
-                onChange={handleInputChange}
-                min="1"
-                max="120"
-                required
-              />
-            </div>
-            <div className="input-with-icon flex-2">
-              <Phone className="field-icon" size={18} />
-              <input
-                type="tel"
-                name="mobile"
-                placeholder="Mobile Number"
-                className="form-input"
-                value={formData.mobile}
-                onChange={handleInputChange}
-                required
-              />
-            </div>
-          </div>
-
-          {/* Password */}
-          <div className="input-with-icon">
-            <Lock className="field-icon" size={18} />
-            <input
-              type="password"
-              name="password"
-              placeholder="Create Password"
-              className="form-input"
-              value={formData.password}
-              onChange={handleInputChange}
-              required
-            />
-          </div>
-
-          <button type="submit" className="btn-submit" disabled={loading}>
-            {loading ? (
-              <span className="btn-spinner" />
-            ) : (
-              <>Register as {roles.find(r => r.key === role)?.label} <ArrowRight size={18} /></>
-            )}
-          </button>
+          <p className="auth-link">
+            Already have an account? <Link to="/login">Sign In</Link>
+          </p>
         </form>
-
-        <p className="auth-link">
-          Already have an account? <Link to="/login">Sign In</Link>
-        </p>
       </motion.div>
     </div>
   );
