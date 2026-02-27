@@ -1,51 +1,410 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LogOut, Users, FlaskConical, Activity, AlertCircle, FileText, UploadCloud, ChevronRight, X, Send, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import {
+    LogOut, Calendar, Users, Activity, AlertTriangle, CheckCircle, Clock,
+    ChevronDown, ChevronUp, ShieldCheck, Stethoscope, Phone, Droplet, Pill,
+    FileText, UploadCloud, Info, TrendingUp
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
-import './Dashboard.css';
 
 const API_URL = 'http://localhost:3000/api';
 
-// Demo assigned patients specific to this doctor
-const DEMO_ASSIGNED_PATIENTS = [
-    { id: 1, name: 'Ankita Sharma', age: 34, targetCancer: 'Breast Cancer', risk: 'high', tested: '2h ago', mobile: '+91 9876543210', bloodGroup: 'O+', history: 'Mother (Breast Cancer)' },
-    { id: 2, name: 'Rohan Gupta', age: 45, targetCancer: 'Oral Cancer', risk: 'moderate', tested: '1d ago', mobile: '+91 9876543211', bloodGroup: 'B+', history: 'None' },
-];
+// ── Design Tokens ─────────────────────────────────────────────────────
+const T = {
+    bg: '#0a0c18',
+    surface: '#111420',
+    surface2: '#181d30',
+    surface3: '#1e2438',
+    border: 'rgba(255,255,255,0.08)',
+    borderGlow: 'rgba(99,179,237,0.35)',
+    text: '#e2e8f0',
+    textMuted: '#64748b',
+    textDim: '#94a3b8',
+    blue: '#3b82f6',
+    blueGlow: 'rgba(59,130,246,0.25)',
+    teal: '#06b6d4',
+    emerald: '#10b981',
+    red: '#ef4444',
+    amber: '#f59e0b',
+    violet: '#8b5cf6',
+};
 
-const DocumentUploadDropzone = ({ label, dropzone, file }) => (
-    <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-dark)', marginBottom: 6 }}>{label}</div>
-        <div
-            {...dropzone.getRootProps()}
-            style={{ border: `1.5px dashed ${dropzone.isDragActive ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 10, padding: '16px', textAlign: 'center', background: dropzone.isDragActive ? 'var(--primary-light)' : '#f8fafc', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
-        >
-            <input {...dropzone.getInputProps()} />
-            {!file ? (
-                <>
-                    <UploadCloud size={24} color={dropzone.isDragActive ? 'var(--primary)' : 'var(--text-muted)'} style={{ marginBottom: 8 }} />
-                    <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Click or drag file</span>
-                </>
-            ) : (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--primary)', fontWeight: 500, fontSize: 13 }}>
-                    <FileText size={16} /> {file.name}
-                </div>
-            )}
-        </div>
-    </div>
+const riskColors = {
+    high: { bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.4)', text: '#fca5a5' },
+    medium: { bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.4)', text: '#fcd34d' },
+    low: { bg: 'rgba(16,185,129,0.12)', border: 'rgba(16,185,129,0.4)', text: '#6ee7b7' },
+};
+
+const statusColors = {
+    pending: { bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.3)', text: '#fcd34d' },
+    confirmed: { bg: 'rgba(59,130,246,0.12)', border: 'rgba(59,130,246,0.3)', text: '#93c5fd' },
+    completed: { bg: 'rgba(16,185,129,0.12)', border: 'rgba(16,185,129,0.3)', text: '#6ee7b7' },
+    cancelled: { bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.3)', text: '#fca5a5' },
+};
+
+// ── Reusable Badge ────────────────────────────────────────────────────
+const Badge = ({ colors, children, style = {} }) => (
+    <span style={{
+        display: 'inline-flex', alignItems: 'center', gap: 4,
+        padding: '3px 10px', borderRadius: 20,
+        fontSize: 11, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase',
+        background: colors.bg, border: `1px solid ${colors.border}`, color: colors.text,
+        ...style
+    }}>
+        {children}
+    </span>
 );
 
+// ── Verification Modal ────────────────────────────────────────────────
+const VerificationModal = ({ onVerify }) => {
+    const [specialization, setSpecialization] = useState('');
+    const [degree, setDegree] = useState(null);
+    const [cert, setCert] = useState(null);
+    const [idDoc, setIdDoc] = useState(null);
+
+    const dz1 = useDropzone({ onDrop: useCallback(f => setDegree(f[0]), []), maxFiles: 1 });
+    const dz2 = useDropzone({ onDrop: useCallback(f => setCert(f[0]), []), maxFiles: 1 });
+    const dz3 = useDropzone({ onDrop: useCallback(f => setIdDoc(f[0]), []), maxFiles: 1 });
+
+    const canSubmit = specialization && degree && cert && idDoc;
+
+    const inputStyle = {
+        width: '100%', padding: '11px 14px', boxSizing: 'border-box',
+        background: T.surface2, border: `1px solid ${T.border}`,
+        borderRadius: 10, color: T.text, fontSize: 14, fontFamily: 'inherit',
+        outline: 'none',
+    };
+
+    const dropzoneStyle = (dz) => ({
+        border: `1.5px dashed ${dz.isDragActive ? T.blue : 'rgba(255,255,255,0.15)'}`,
+        borderRadius: 10, padding: 18, textAlign: 'center',
+        background: dz.isDragActive ? 'rgba(59,130,246,0.08)' : T.surface2,
+        cursor: 'pointer', transition: 'all 0.2s', marginTop: 6,
+    });
+
+    return (
+        <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{
+                position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
+                backdropFilter: 'blur(8px)', zIndex: 9999,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+            }}
+        >
+            <motion.div
+                initial={{ y: 40, scale: 0.95 }} animate={{ y: 0, scale: 1 }}
+                style={{
+                    background: T.surface, border: `1px solid ${T.border}`,
+                    borderRadius: 20, padding: 32, width: '100%', maxWidth: 480,
+                    maxHeight: '90vh', overflowY: 'auto',
+                    boxShadow: '0 30px 80px rgba(0,0,0,0.6)',
+                    fontFamily: "'Inter', sans-serif",
+                }}
+            >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                    <ShieldCheck size={26} color={T.blue} />
+                    <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: T.text }}>
+                        Verify Your Profile
+                    </h2>
+                </div>
+                <p style={{ color: T.textMuted, fontSize: 13, marginBottom: 24, lineHeight: 1.6 }}>
+                    Upload your credentials to activate your oncologist dashboard. One-time process.
+                </p>
+
+                <div style={{ marginBottom: 16 }}>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: T.textDim, textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', marginBottom: 6 }}>
+                        Specialization
+                    </label>
+                    <input
+                        style={inputStyle}
+                        placeholder="e.g. Hematology Oncology"
+                        value={specialization}
+                        onChange={e => setSpecialization(e.target.value)}
+                    />
+                </div>
+
+                {[
+                    { label: 'Medical Degree', dz: dz1, file: degree },
+                    { label: 'Medical Council Certificate', dz: dz2, file: cert },
+                    { label: 'Government Photo ID', dz: dz3, file: idDoc },
+                ].map(({ label, dz, file }) => (
+                    <div key={label} style={{ marginBottom: 16 }}>
+                        <label style={{ fontSize: 11, fontWeight: 700, color: T.textDim, textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', marginBottom: 6 }}>
+                            {label}
+                        </label>
+                        <div {...dz.getRootProps()} style={dropzoneStyle(dz)}>
+                            <input {...dz.getInputProps()} />
+                            {file ? (
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: T.emerald, fontWeight: 600, fontSize: 13 }}>
+                                    <CheckCircle size={15} /> {file.name}
+                                </div>
+                            ) : (
+                                <>
+                                    <UploadCloud size={22} color={T.textMuted} style={{ marginBottom: 6 }} />
+                                    <p style={{ fontSize: 12, color: T.textMuted, margin: 0 }}>Click or drag file here</p>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                ))}
+
+                <button
+                    disabled={!canSubmit}
+                    onClick={() => onVerify(specialization)}
+                    style={{
+                        width: '100%', padding: '13px 0', marginTop: 20,
+                        background: canSubmit ? T.blue : T.surface3,
+                        color: canSubmit ? 'white' : T.textMuted,
+                        fontSize: 15, fontWeight: 700, border: 'none',
+                        borderRadius: 12, cursor: canSubmit ? 'pointer' : 'not-allowed',
+                        transition: 'background 0.2s',
+                        boxShadow: canSubmit ? `0 4px 16px ${T.blueGlow}` : 'none',
+                        fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    }}
+                >
+                    <ShieldCheck size={16} /> Activate Dashboard
+                </button>
+            </motion.div>
+        </motion.div>
+    );
+};
+
+// ── Appointment Card ──────────────────────────────────────────────────
+const AppointmentCard = ({ appt, index, updateStatus }) => {
+    const [expanded, setExpanded] = useState(false);
+    const patient = appt.patientId || {};
+    const riskKey = (appt.risk_level || 'low').toLowerCase();
+    const riskColor = riskColors[riskKey] || riskColors.low;
+    const statusKey = appt.status || 'pending';
+    const statusColor = statusColors[statusKey] || statusColors.pending;
+    const initial = (patient.name || '?')[0].toUpperCase();
+    const top3 = (appt.top_factors || []).slice(0, 3);
+
+    const detailFields = [
+        { icon: <Droplet size={13} />, label: 'Blood Group', val: patient.bloodGroup || '—' },
+        { icon: <Pill size={13} />, label: 'Medications', val: patient.currentMedications || 'None' },
+        { icon: <Info size={13} />, label: 'Allergies', val: patient.knownAllergies || 'None' },
+        { icon: <FileText size={13} />, label: 'Past Surgeries', val: patient.pastSurgeries || 'None' },
+        { icon: <Users size={13} />, label: 'Family History', val: patient.familyHistory || 'None' },
+        { icon: <Activity size={13} />, label: 'Symptoms', val: patient.currentSymptoms || 'Not recorded' },
+    ];
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.06 }}
+            style={{
+                background: T.surface, border: `1px solid ${expanded ? 'rgba(59,130,246,0.4)' : T.border}`,
+                borderRadius: 16, overflow: 'hidden',
+                boxShadow: expanded ? `0 0 0 1px rgba(59,130,246,0.15), 0 8px 32px rgba(0,0,0,0.4)` : 'none',
+                transition: 'all 0.25s',
+            }}
+        >
+            {/* Header */}
+            <div
+                onClick={() => setExpanded(p => !p)}
+                style={{
+                    padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16,
+                    cursor: 'pointer',
+                    background: expanded ? 'rgba(59,130,246,0.04)' : 'transparent',
+                }}
+            >
+                {/* Avatar */}
+                <div style={{
+                    width: 48, height: 48, borderRadius: 14, flexShrink: 0,
+                    background: `linear-gradient(135deg, ${T.blue}, ${T.violet})`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 18, fontWeight: 800, color: 'white',
+                }}>
+                    {initial}
+                </div>
+
+                {/* Info */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 4 }}>
+                        {patient.name || 'Patient Record'}
+                    </div>
+                    <div style={{ display: 'flex', gap: 14, fontSize: 12, color: T.textMuted, flexWrap: 'wrap' }}>
+                        {patient.age && <span>Age {patient.age}</span>}
+                        {patient.mobile && (
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <Phone size={11} /> {patient.mobile}
+                            </span>
+                        )}
+                    </div>
+                </div>
+
+                {/* Right side */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+                    <Badge colors={riskColor}>{riskKey} risk</Badge>
+                    <span style={{ fontSize: 11, color: T.textDim, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <Calendar size={11} /> {appt.date} &nbsp;
+                        <Clock size={11} /> {appt.time}
+                    </span>
+                    <Badge colors={statusColor}>{statusKey}</Badge>
+                </div>
+
+                {/* Chevron */}
+                <div style={{ color: T.textMuted, marginLeft: 6 }}>
+                    {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                </div>
+            </div>
+
+            {/* Expanded Detail */}
+            <AnimatePresence>
+                {expanded && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.25 }}
+                        style={{ overflow: 'hidden' }}
+                    >
+                        <div style={{ padding: 20, borderTop: `1px solid ${T.border}`, background: T.surface2 }}>
+                            {/* Patient Detail Grid */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12, marginBottom: 20 }}>
+                                {detailFields.map(({ icon, label, val }) => (
+                                    <div key={label} style={{
+                                        background: T.surface3, border: `1px solid ${T.border}`,
+                                        borderRadius: 10, padding: 12,
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5 }}>
+                                            {icon} {label}
+                                        </div>
+                                        <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{val}</div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Risk Score Bar */}
+                            <div style={{ marginBottom: 16 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 600, color: T.textDim, marginBottom: 8 }}>
+                                    <span><TrendingUp size={12} style={{ marginRight: 4, verticalAlign: 'middle' }} />AI Risk Score</span>
+                                    <span style={{ color: riskColor.text }}>
+                                        {appt.risk_score ? Number(appt.risk_score).toFixed(1) : 0}%
+                                    </span>
+                                </div>
+                                <div style={{ height: 8, background: T.surface3, borderRadius: 6, overflow: 'hidden' }}>
+                                    <motion.div
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${Math.min(appt.risk_score || 0, 100)}%` }}
+                                        transition={{ duration: 1, ease: 'easeOut' }}
+                                        style={{
+                                            height: '100%', borderRadius: 6,
+                                            background: riskKey === 'high'
+                                                ? 'linear-gradient(90deg,#ef4444,#dc2626)'
+                                                : riskKey === 'medium'
+                                                    ? 'linear-gradient(90deg,#f59e0b,#d97706)'
+                                                    : 'linear-gradient(90deg,#10b981,#059669)',
+                                        }}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Factor Chips */}
+                            {top3.length > 0 && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 18 }}>
+                                    <span style={{ fontSize: 11, color: T.textMuted, alignSelf: 'center' }}>Key Factors:</span>
+                                    {top3.map((f, i) => (
+                                        <span key={i} style={{
+                                            padding: '3px 10px', borderRadius: 8, fontSize: 12, fontWeight: 500,
+                                            background: T.surface3, border: `1px solid ${f.type === 'positive' ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)'}`,
+                                            color: f.type === 'positive' ? '#fca5a5' : '#6ee7b7',
+                                        }}>
+                                            {f.type === 'positive' ? '↑' : '↓'} {f.label}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Action Buttons */}
+                            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                                {[
+                                    {
+                                        label: 'Confirm', icon: <CheckCircle size={14} />, status: 'confirmed',
+                                        s: { bg: 'rgba(16,185,129,0.15)', border: 'rgba(16,185,129,0.3)', color: '#6ee7b7' }
+                                    },
+                                    {
+                                        label: 'Mark Completed', icon: <Stethoscope size={14} />, status: 'completed',
+                                        s: { bg: T.blue, border: T.blue, color: 'white' }
+                                    },
+                                    {
+                                        label: 'Cancel', icon: <AlertTriangle size={14} />, status: 'cancelled',
+                                        s: { bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.3)', color: '#fca5a5' }
+                                    },
+                                ].map(({ label, icon, status, s }) => (
+                                    <button
+                                        key={status}
+                                        onClick={() => updateStatus(appt._id, status)}
+                                        style={{
+                                            display: 'flex', alignItems: 'center', gap: 7,
+                                            padding: '9px 16px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                                            background: s.bg, border: `1px solid ${s.border}`, color: s.color,
+                                            cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'inherit',
+                                        }}
+                                    >
+                                        {icon} {label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </motion.div>
+    );
+};
+
+// ── Main Dashboard ────────────────────────────────────────────────────
 const DoctorDashboard = () => {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    const [patients] = useState(DEMO_ASSIGNED_PATIENTS);
+    const navigate = useNavigate();
+    const [user, setUser] = useState(JSON.parse(localStorage.getItem('user') || '{}'));
+    const [isVerified, setIsVerified] = useState(user.isVerified || false);
+    const [appointments, setAppointments] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState('all');
 
-    // Profile Completion State
-    const [profileComplete, setProfileComplete] = useState(user.profileComplete || false);
-    const [profileData, setProfileData] = useState({ specialization: '' });
-    const [uploadedDocs, setUploadedDocs] = useState({ degree: null, certificate: null, id: null });
+    useEffect(() => {
+        if (!user._id) { setLoading(false); return; }
 
-    // UI State
-    const [selectedPatient, setSelectedPatient] = useState(null);
+        const token = localStorage.getItem('token');
+        fetch(`${API_URL}/appointments/doctor/${user._id}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        })
+            .then(r => r.json())
+            .then(d => { if (d.success) setAppointments(d.data); })
+            .catch(console.error)
+            .finally(() => setLoading(false));
+    }, [user._id]);
+
+    const updateStatus = (id, status) =>
+        setAppointments(prev => prev.map(a => a._id === id ? { ...a, status } : a));
+
+    const handleVerify = async (spec) => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/verify-doctor`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ specialization: spec })
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                const updatedUser = { ...user, isVerified: true, specialization: spec };
+                localStorage.setItem('user', JSON.stringify(updatedUser));
+                setUser(updatedUser);
+                setIsVerified(true);
+            }
+        } catch (err) {
+            console.error('Verification failed:', err);
+        }
+    };
 
     const handleLogout = () => {
         localStorage.removeItem('token');
@@ -53,227 +412,256 @@ const DoctorDashboard = () => {
         navigate('/login');
     };
 
-    // --- File Upload Logic ---
-    const onDropDegree = useCallback(acceptedFiles => setUploadedDocs(prev => ({ ...prev, degree: acceptedFiles[0] })), []);
-    const onDropCert = useCallback(acceptedFiles => setUploadedDocs(prev => ({ ...prev, certificate: acceptedFiles[0] })), []);
-    const onDropId = useCallback(acceptedFiles => setUploadedDocs(prev => ({ ...prev, id: acceptedFiles[0] })), []);
+    const total = appointments.length;
+    const pending = appointments.filter(a => (a.status || 'pending') === 'pending').length;
+    const highRisk = appointments.filter(a => (a.risk_level || '').toLowerCase() === 'high').length;
 
-    const dropzoneDegree = useDropzone({ onDrop: onDropDegree, maxFiles: 1 });
-    const dropzoneCert = useDropzone({ onDrop: onDropCert, maxFiles: 1 });
-    const dropzoneId = useDropzone({ onDrop: onDropId, maxFiles: 1 });
+    const filtered = activeTab === 'all'
+        ? appointments
+        : appointments.filter(a => (a.status || 'pending') === activeTab);
 
-    const handleProfileSubmit = (e) => {
-        e.preventDefault();
-        const updatedUser = { ...user, profileComplete: true, specialization: profileData.specialization };
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-        setProfileComplete(true);
-    };
+    const initials = (user.name || 'DR').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
-    // --- Render Helpers ---
-    const riskBadge = (risk) => {
-        const map = { high: 'badge-high', moderate: 'badge-moderate', low: 'badge-low' };
-        const labels = { high: '⚠ High Risk', moderate: '🔶 Moderate Risk', low: '✅ Low Risk' };
-        return <span className={`list-badge ${map[risk]}`}>{labels[risk]}</span>;
-    };
+    const navItems = [
+        { label: 'All Appointments', tab: 'all', icon: <Calendar size={16} />, count: total },
+        { label: 'Pending', tab: 'pending', icon: <Clock size={16} />, count: pending },
+        { label: 'Confirmed', tab: 'confirmed', icon: <CheckCircle size={16} /> },
+        { label: 'Completed', tab: 'completed', icon: <Activity size={16} /> },
+    ];
+
+    const stats = [
+        { label: 'Total Patients', value: total, icon: <Users size={20} />, grad: `${T.blue}, ${T.violet}` },
+        { label: 'Awaiting Review', value: pending, icon: <Clock size={20} />, grad: `${T.teal}, ${T.emerald}` },
+        { label: 'High Risk', value: highRisk, icon: <AlertTriangle size={20} />, grad: `${T.amber}, ${T.red}` },
+    ];
 
     return (
-        <div className="dashboard-page relative" style={{ background: '#f8fafc' }}>
+        <div style={{ display: 'flex', background: T.bg, minHeight: '100vh', fontFamily: "'Inter', 'Inter', sans-serif", color: T.text }}>
 
-            {/* --- Doctor Verification Modal --- */}
+            {/* ── Verification Modal ── */}
             <AnimatePresence>
-                {!profileComplete && (
-                    <motion.div
-                        className="modal-overlay"
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
-                    >
-                        <motion.div
-                            className="modal-content"
-                            initial={{ y: 50, scale: 0.95 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, scale: 0.95 }}
-                            style={{ background: 'white', borderRadius: 24, padding: '32px', width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}
-                        >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-                                <ShieldCheck size={28} color="var(--primary)" />
-                                <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-dark)' }}>Verify Professional Profile</h2>
-                            </div>
-                            <p style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 24 }}>Upload your credentials to activate your oncologist dashboard.</p>
-
-                            <form onSubmit={handleProfileSubmit} style={{ display: 'flex', flexDirection: 'column' }}>
-
-                                <div className="form-field" style={{ marginBottom: 20 }}>
-                                    <label>Specialization *</label>
-                                    <select required value={profileData.specialization} onChange={(e) => setProfileData({ specialization: e.target.value })} style={{ width: '100%', padding: '12px', borderRadius: 10, border: '1.5px solid var(--border)', fontSize: 14 }}>
-                                        <option value="">Select Primary Specialization</option>
-                                        <option value="Breast Cancer Specialist">Breast Cancer Specialist</option>
-                                        <option value="Oral Cancer Specialist">Oral Cancer Specialist</option>
-                                        <option value="Cervical Cancer Specialist">Cervical Cancer Specialist</option>
-                                        <option value="Skin Cancer Specialist">Skin Cancer Specialist</option>
-                                    </select>
-                                </div>
-
-                                <DocumentUploadDropzone label="1. Medical Degree (MBBS/MD)" dropzone={dropzoneDegree} file={uploadedDocs.degree} />
-                                <DocumentUploadDropzone label="2. Specialty Certificate (Oncology)" dropzone={dropzoneCert} file={uploadedDocs.certificate} />
-                                <DocumentUploadDropzone label="3. Government/Medical License ID" dropzone={dropzoneId} file={uploadedDocs.id} />
-
-                                <button type="submit" className="btn-primary" style={{ marginTop: 12, padding: '16px' }} disabled={!uploadedDocs.degree || !uploadedDocs.certificate || !uploadedDocs.id || !profileData.specialization}>
-                                    Submit for Verification <ChevronRight size={18} />
-                                </button>
-                                <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', marginTop: 12 }}>Verification usually takes 1-2 business days.</p>
-                            </form>
-                        </motion.div>
-                    </motion.div>
-                )}
+                {!isVerified && <VerificationModal onVerify={handleVerify} />}
             </AnimatePresence>
 
-            {/* --- Patient Detail Modal --- */}
-            <AnimatePresence>
-                {selectedPatient && (
-                    <motion.div
-                        className="modal-overlay"
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        onClick={() => setSelectedPatient(null)}
-                        style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(2px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+            {/* ══════════════ SIDEBAR ══════════════ */}
+            <aside style={{
+                width: 256, flexShrink: 0, background: T.surface,
+                borderRight: `1px solid ${T.border}`,
+                display: 'flex', flexDirection: 'column',
+                position: 'fixed', top: 0, left: 0, height: '100vh', zIndex: 50,
+            }}>
+                {/* Logo */}
+                <div style={{ padding: '24px 20px 18px', borderBottom: `1px solid ${T.border}` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+                        <div style={{
+                            width: 36, height: 36, borderRadius: 10,
+                            background: `linear-gradient(135deg, ${T.blue}, ${T.violet})`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                            <Activity size={19} color="white" />
+                        </div>
+                        <span style={{
+                            fontSize: 18, fontWeight: 800,
+                            background: `linear-gradient(90deg, #60a5fa, #a78bfa)`,
+                            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                        }}>
+                            CarePortal
+                        </span>
+                    </div>
+                    {/* Doctor Avatar */}
+                    <div style={{
+                        display: 'flex', alignItems: 'center', gap: 12,
+                        padding: '10px 12px', background: T.surface2,
+                        borderRadius: 12, border: `1px solid ${T.border}`,
+                    }}>
+                        <div style={{
+                            width: 42, height: 42, borderRadius: '50%', flexShrink: 0,
+                            background: `linear-gradient(135deg, ${T.blue}, ${T.teal})`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 16, fontWeight: 800, color: 'white',
+                            boxShadow: `0 0 0 3px rgba(59,130,246,0.3)`,
+                        }}>
+                            {initials}
+                        </div>
+                        <div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}>
+                                Dr. {user.name || 'Specialist'}
+                            </div>
+                            <div style={{ fontSize: 11, color: T.teal, fontWeight: 500, letterSpacing: '0.4px' }}>
+                                ● ONCOLOGIST
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Nav */}
+                <nav style={{ flex: 1, padding: '18px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {navItems.map(({ label, tab, icon, count }) => {
+                        const active = activeTab === tab;
+                        return (
+                            <button
+                                key={tab}
+                                onClick={() => setActiveTab(tab)}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: 12,
+                                    padding: '11px 14px', borderRadius: 10,
+                                    width: '100%', textAlign: 'left', cursor: 'pointer',
+                                    background: active ? 'rgba(59,130,246,0.15)' : 'transparent',
+                                    color: active ? T.blue : T.textMuted,
+                                    border: active ? `1px solid rgba(59,130,246,0.3)` : '1px solid transparent',
+                                    fontWeight: active ? 700 : 500, fontSize: 14,
+                                    transition: 'all 0.18s', fontFamily: 'inherit',
+                                }}
+                            >
+                                {icon}
+                                <span style={{ flex: 1 }}>{label}</span>
+                                {count > 0 && tab !== 'all' && (
+                                    <span style={{
+                                        background: tab === 'pending' ? T.red : T.blue,
+                                        color: 'white', fontSize: 11, fontWeight: 800,
+                                        borderRadius: 10, padding: '2px 8px',
+                                    }}>
+                                        {count}
+                                    </span>
+                                )}
+                            </button>
+                        );
+                    })}
+                </nav>
+
+                {/* Logout */}
+                <div style={{ padding: '14px 12px', borderTop: `1px solid ${T.border}` }}>
+                    <button
+                        onClick={handleLogout}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                            padding: '11px 14px', borderRadius: 10,
+                            background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
+                            color: '#f87171', fontSize: 14, fontWeight: 600,
+                            cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'inherit',
+                        }}
                     >
-                        <motion.div
-                            className="modal-content"
-                            initial={{ y: 50, scale: 0.95 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, scale: 0.95 }}
-                            onClick={e => e.stopPropagation()}
-                            style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 24, padding: '32px', width: '100%', maxWidth: '600px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}
-                        >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                                    <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 700 }}>
-                                        {selectedPatient.name.charAt(0)}
-                                    </div>
-                                    <div>
-                                        <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-dark)', display: 'flex', alignItems: 'center', gap: 10 }}>
-                                            {selectedPatient.name}
-                                            {riskBadge(selectedPatient.risk)}
-                                        </div>
-                                        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>Age: {selectedPatient.age} | Blood: {selectedPatient.bloodGroup} | Ph: {selectedPatient.mobile}</div>
-                                    </div>
-                                </div>
-                                <button onClick={() => setSelectedPatient(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={20} /></button>
-                            </div>
-
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
-                                <div style={{ background: '#f8fafc', padding: 16, borderRadius: 12, border: '1px solid var(--border)' }}>
-                                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 4 }}>Target Screening</div>
-                                    <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-dark)' }}>{selectedPatient.targetCancer}</div>
-                                </div>
-                                <div style={{ background: '#f8fafc', padding: 16, borderRadius: 12, border: '1px solid var(--border)' }}>
-                                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 4 }}>Family History</div>
-                                    <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-dark)' }}>{selectedPatient.history}</div>
-                                </div>
-                            </div>
-
-                            <div style={{ marginBottom: 24 }}>
-                                <h3 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-dark)', marginBottom: 12 }}>Uploaded Medical Documents</h3>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'white', border: '1px solid var(--border)', borderRadius: 10 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, fontWeight: 500, color: 'var(--text-body)' }}>
-                                            <FileText size={18} color="var(--primary)" /> latest_blood_report.pdf
-                                        </div>
-                                        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Uploaded yesterday</span>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'white', border: '1px solid var(--border)', borderRadius: 10 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, fontWeight: 500, color: 'var(--text-body)' }}>
-                                            <FileText size={18} color="var(--primary)" /> past_prescription.jpg
-                                        </div>
-                                        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Uploaded 2 days ago</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div>
-                                <button style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '14px', borderRadius: 12, border: '1px solid var(--primary)', background: 'white', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', fontSize: 14 }} className="hover-bg-primary-light">
-                                    <Send size={16} /> Send Update / Notification to Patient
-                                </button>
-                            </div>
-
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            <nav className="dash-nav" style={{ filter: !profileComplete ? 'blur(4px)' : 'none', pointerEvents: !profileComplete ? 'none' : 'auto' }}>
-                <div className="dash-nav-brand"><span>🩺</span> CarePortal</div>
-                <div className="dash-nav-right">
-                    <span className="dash-role-badge">Doctor</span>
-                    <button className="btn-logout" onClick={handleLogout}>
-                        <LogOut size={14} style={{ display: 'inline', marginRight: 4 }} /> Logout
+                        <LogOut size={16} /> Sign Out
                     </button>
                 </div>
-            </div>
+            </aside>
 
-            <main className="dash-main" style={{ maxWidth: '800px', filter: !profileComplete ? 'blur(4px)' : 'none', pointerEvents: !profileComplete ? 'none' : 'auto' }}>
-                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+            {/* ══════════════ MAIN CONTENT ══════════════ */}
+            <main style={{ marginLeft: 256, flex: 1, padding: 32, minHeight: '100vh' }}>
+                {/* Topbar */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32 }}>
+                    <div>
+                        <h1 style={{ fontSize: 28, fontWeight: 800, color: T.text, margin: 0, lineHeight: 1.2 }}>
+                            {activeTab === 'all' ? 'All Appointments' :
+                                activeTab === 'pending' ? 'Pending Review' :
+                                    activeTab === 'confirmed' ? 'Confirmed Sessions' : 'Completed Cases'}
+                        </h1>
+                        <p style={{ fontSize: 14, color: T.textMuted, margin: '5px 0 0' }}>
+                            {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                        </p>
+                    </div>
+                    <div style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 7,
+                        padding: '8px 16px', background: 'rgba(16,185,129,0.1)',
+                        border: '1px solid rgba(16,185,129,0.3)', borderRadius: 20,
+                        fontSize: 13, fontWeight: 600, color: T.emerald,
+                    }}>
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: T.emerald, boxShadow: `0 0 6px ${T.emerald}`, display: 'inline-block' }} />
+                        On Duty
+                    </div>
+                </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-                        <div>
-                            <h2 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-dark)', marginBottom: 4 }}>Dr. {user.name || 'Doctor'}</h2>
-                            <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>{user.specialization || 'Oncologist'} · License: {user.licenseNumber || 'Verified'}</p>
+                {/* Stats Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20, marginBottom: 32 }}>
+                    {stats.map(({ label, value, icon, grad }) => (
+                        <div key={label} style={{
+                            background: T.surface, border: `1px solid ${T.border}`,
+                            borderRadius: 16, padding: 22, position: 'relative', overflow: 'hidden',
+                            transition: 'transform 0.2s',
+                        }}>
+                            <div style={{
+                                position: 'absolute', top: 0, left: 0, right: 0, height: 2,
+                                background: `linear-gradient(90deg, ${grad})`,
+                            }} />
+                            <div style={{
+                                width: 44, height: 44, borderRadius: 12, marginBottom: 16,
+                                background: `linear-gradient(135deg, ${grad})`,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                color: 'white', opacity: 0.9,
+                            }}>
+                                {icon}
+                            </div>
+                            <div style={{ fontSize: 34, fontWeight: 800, color: T.text, lineHeight: 1 }}>{value}</div>
+                            <div style={{ fontSize: 13, color: T.textMuted, marginTop: 6, fontWeight: 500 }}>{label}</div>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'white', padding: '6px 14px', borderRadius: 20, fontSize: 13, border: '1px solid var(--border)', fontWeight: 600, color: 'var(--success)' }}>
-                            <ShieldCheck size={16} /> Verified Profile
+                    ))}
+                </div>
+
+                {/* Section Header */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+                    <div style={{
+                        width: 36, height: 36, borderRadius: 10,
+                        background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.blue,
+                    }}>
+                        <Calendar size={18} />
+                    </div>
+                    <span style={{ fontSize: 18, fontWeight: 700, color: T.text }}>Patient Queue</span>
+                    <span style={{
+                        fontSize: 12, color: T.textMuted, padding: '3px 12px',
+                        background: 'rgba(255,255,255,0.04)', borderRadius: 10,
+                        border: `1px solid ${T.border}`, fontWeight: 500,
+                    }}>
+                        {filtered.length} record{filtered.length !== 1 ? 's' : ''}
+                    </span>
+                </div>
+
+                {/* List */}
+                {loading ? (
+                    <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
+                        <div style={{
+                            width: 40, height: 40,
+                            border: `3px solid ${T.border}`, borderTopColor: T.blue,
+                            borderRadius: '50%', animation: 'spin 0.8s linear infinite',
+                        }} />
+                        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                    </div>
+                ) : filtered.length === 0 ? (
+                    <div style={{
+                        padding: '60px 20px', textAlign: 'center',
+                        background: T.surface, border: `1px dashed rgba(255,255,255,0.1)`,
+                        borderRadius: 16,
+                    }}>
+                        <div style={{
+                            width: 72, height: 72, borderRadius: 20,
+                            background: T.surface2, border: `1px solid ${T.border}`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            margin: '0 auto 20px',
+                        }}>
+                            <Calendar size={32} color={T.textMuted} />
+                        </div>
+                        <div style={{ fontSize: 18, fontWeight: 700, color: T.text, marginBottom: 8 }}>
+                            No appointments yet
+                        </div>
+                        <div style={{ fontSize: 14, color: T.textMuted }}>
+                            {activeTab === 'all'
+                                ? 'When patients book a consultation with you, they will appear here.'
+                                : `No ${activeTab} appointments at this time.`}
                         </div>
                     </div>
-
-                    <div style={{ background: 'var(--primary-light)', padding: '16px', borderRadius: 12, border: '1px solid var(--primary-border)', marginBottom: 24, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                        <AlertCircle size={20} color="var(--primary)" style={{ flexShrink: 0, mt: 2 }} />
-                        <div>
-                            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--primary)', marginBottom: 2 }}>Patient-Wise View</div>
-                            <div style={{ fontSize: 13, color: 'var(--text-dark)' }}>This list strictly shows patients who have explicitly chosen you as their consulting specialist.</div>
-                        </div>
-                    </div>
-                </form>
-            )}
-
-                    <p className="dash-section-title">My Assigned Patients ({patients.length})</p>
-
-                    {/* Patient Grid View */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
-                        {patients.map(p => (
-                            <motion.div
-                                key={p.id}
-                                whileHover={{ y: -2 }}
-                                onClick={() => setSelectedPatient(p)}
-                                style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 16, padding: '20px', cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', position: 'relative', overflow: 'hidden' }}
-                            >
-                                {/* Top Color Bar based on risk */}
-                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, background: p.risk === 'high' ? 'var(--error)' : p.risk === 'moderate' ? 'var(--warning)' : 'var(--success)' }} />
-
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-                                    <div>
-                                        <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-dark)', marginBottom: 2 }}>{p.name}</div>
-                                        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Age {p.age} · {p.targetCancer}</div>
-                                    </div>
-                                    <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#f8fafc', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 700, border: '1px solid var(--border)' }}>
-                                        {p.name.charAt(0)}
-                                    </div>
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: 16 }}>
-                                    {riskBadge(p.risk)}
-                                    <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                                        <FlaskConical size={12} /> Tested {p.tested}
-                                    </div>
-                                </div>
-                            </motion.div>
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                        {filtered.map((appt, idx) => (
+                            <AppointmentCard
+                                key={appt._id}
+                                appt={appt}
+                                index={idx}
+                                updateStatus={updateStatus}
+                            />
                         ))}
                     </div>
-
-                    {patients.length === 0 && (
-                        <div style={{ textAlign: 'center', padding: '40px', background: 'white', borderRadius: 16, border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
-                            No patients assigned to you yet.
-                        </div>
-                    )}
-
-                </motion.div>
+                )}
             </main>
-
-            <style>{`
-                .hover-bg-primary-light:hover { background: var(--primary-light) !important; }
-            `}</style>
         </div>
     );
 };
