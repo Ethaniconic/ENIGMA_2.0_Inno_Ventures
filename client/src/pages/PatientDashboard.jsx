@@ -290,11 +290,19 @@ const PatientDashboard = () => {
                 </div>
                 <div className="dash-nav-right" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                     <div className="flex items-center gap-3">
-                        <img
-                            src={`https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || 'User')}&background=0D8ABC&color=fff&rounded=true`}
-                            alt="Profile"
-                            style={{ width: '40px', height: '40px', borderRadius: '50%', border: '2px solid var(--slate-200)' }}
-                        />
+                        <div style={{ position: 'relative', width: '40px', height: '40px' }}>
+                            <img
+                                src={`https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || 'User')}&background=0D8ABC&color=fff&rounded=true`}
+                                alt="Profile"
+                                style={{ width: '40px', height: '40px', borderRadius: '50%', border: '2px solid var(--slate-200)', position: 'absolute', top: 0, left: 0, zIndex: 2 }}
+                                onError={(e) => {
+                                    e.target.style.display = 'none';
+                                }}
+                            />
+                            <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--teal-500)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '18px' }}>
+                                {user.name ? user.name[0].toUpperCase() : 'U'}
+                            </div>
+                        </div>
                         <span className="dash-role-badge">Patient</span>
                     </div>
                     <button className="btn-logout" onClick={handleLogout}>

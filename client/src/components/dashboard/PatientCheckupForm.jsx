@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-    ShieldAlert, Activity, AlertTriangle, UploadCloud, User,
+    ShieldAlert, Activity, AlertTriangle, UploadCloud, User, Users, TrendingUp,
     Droplet, Thermometer, FlaskConical, Clipboard, ArrowRight,
     CheckCircle2, AlertCircle, Trash2
 } from 'lucide-react';

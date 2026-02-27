@@ -216,8 +216,23 @@ const DoctorDashboard = () => {
     }, [user._id]);
 
     const updateStatus = async (id, status) => {
-        // Optimistic update
-        setAppointments(prev => prev.map(a => a._id === id ? { ...a, status } : a));
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/appointments/${id}/status`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ status })
+            });
+            const data = await res.json();
+            if (data.success) {
+                setAppointments(prev => prev.map(a => a._id === id ? { ...a, status } : a));
+            }
+        } catch (err) {
+            console.error('Failed to update status:', err);
+        }
     };
 
     const handleVerify = async (spec) => {

@@ -32,7 +32,7 @@ const getDoctorAppointments = async (req, res) => {
         const { doctorId } = req.params;
         const appointments = await Appointment.find({ doctorId })
             .populate('patientId', 'name age mobile bloodGroup currentMedications pastSurgeries knownAllergies familyHistory currentSymptoms')
-            .sort({ date: 1, time: 1 });
+            .sort({ createdAt: -1 });
 
         res.status(200).json({ success: true, data: appointments });
     } catch (error) {
@@ -41,4 +41,26 @@ const getDoctorAppointments = async (req, res) => {
     }
 };
 
-module.exports = { bookAppointment, getDoctorAppointments };
+const updateAppointmentStatus = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        const appointment = await Appointment.findByIdAndUpdate(
+            id,
+            { status },
+            { new: true }
+        );
+
+        if (!appointment) {
+            return res.status(404).json({ success: false, message: 'Appointment not found' });
+        }
+
+        res.json({ success: true, data: appointment });
+    } catch (error) {
+        console.error('Update Appointment Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to update status' });
+    }
+};
+
+module.exports = { bookAppointment, getDoctorAppointments, updateAppointmentStatus };

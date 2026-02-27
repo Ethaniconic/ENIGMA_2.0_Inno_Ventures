@@ -56,7 +56,7 @@ const predictBiomarkers = async (req, res) => {
         if (prediction.success && process.env.GEMINI_API_KEY) {
             try {
                 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-                const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+                const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
                 const prompt = `
                     You are a compassionate and professional medical AI assistant.
@@ -122,7 +122,7 @@ const extractBiomarkers = async (req, res) => {
 
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
         // Using pro model for multimodal document extraction (or flash if that's all that's available, flash is fine)
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
         const prompt = `
             You are a medical data extraction assistant. The user has uploaded an image or PDF of their blood test / lab report.
@@ -207,7 +207,7 @@ const recommendDoctors = async (req, res) => {
         }
 
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
         const prompt = `
             You are a medical AI matching patients to the best doctors.
