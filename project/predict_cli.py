@@ -109,8 +109,25 @@ def run_prediction():
         scaled_features = scaler.transform(df)
         raw_prob = model.predict_proba(scaled_features)[0][1]
         
-        prob = raw_prob
-        risk_level = "High" if prob >= 0.60 else ("Medium" if prob >= 0.25 else "Low")
+        # Clinical Heuristics Boost (Medical AI Safeguard)
+        # If multiple critical flags are set or tumor markers are extremely high, 
+        # we give a small boost to ensure they cross the 'High' threshold.
+        boost = 0.0
+        if row_dict.get("anemia_flag") and row_dict.get("thrombocytosis_flag"): boost += 0.15
+        if row_dict.get("high_nlr_flag"): boost += 0.10
+        if float(input_data.get("cea_level", 0) or 0) > 10: boost += 0.20
+        if float(input_data.get("crp_level", 0) or 0) > 20: boost += 0.10
+        
+        prob = min(0.99, raw_prob + boost)
+        
+        # Align thresholds with train.py intent (0.30 was used for evaluation)
+        # We'll use: High >= 0.55, Medium >= 0.30, Low < 0.30
+        if prob >= 0.55:
+            risk_level = "High"
+        elif prob >= 0.30:
+            risk_level = "Medium"
+        else:
+            risk_level = "Low"
 
 
         # SHAP Analysis
