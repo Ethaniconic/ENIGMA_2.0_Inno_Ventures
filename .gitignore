@@ -27,3 +27,5 @@ dist-ssr
 datasets/
 dataset/
 data/
+.env
+node_modules/
