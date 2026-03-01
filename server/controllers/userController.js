@@ -92,7 +92,7 @@ const loginUser = async (req, res) => {
         if (user && (await bcrypt.compare(password, user.password))) {
             const token = jwt.sign(
                 { id: user._id, role: user.role },
-                process.env.JWT_SECRET || 'fallback_secret',
+                process.env.JWT_SECRET,
                 { expiresIn: '30d' }
             );
 
@@ -103,7 +103,9 @@ const loginUser = async (req, res) => {
                     name: user.name,
                     role: user.role,
                     profileComplete: user.profileComplete || false,
-                    targetCancer: user.targetCancer || ''
+                    targetCancer: user.targetCancer || '',
+                    isVerified: user.isVerified || false,
+                    specialization: user.specialization || ''
                 },
                 token
             });
@@ -123,7 +125,7 @@ const updateProfile = async (req, res) => {
             return res.status(401).json({ message: 'Not authorized.' });
         }
         const token = authHeader.split(' ')[1];
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
         const { targetCancer, bloodGroup, currentMedications, pastSurgeries, knownAllergies, familyHistory, currentSymptoms } = req.body;
 
@@ -152,4 +154,24 @@ const getRecentUsers = async (req, res) => {
     }
 };
 
-module.exports = { registerUser, loginUser, getRecentUsers, updateProfile };
+const verifyDoctor = async (req, res) => {
+    try {
+        const { specialization } = req.body;
+        const userId = req.user.id;
+
+        const user = await User.findByIdAndUpdate(
+            userId,
+            { isVerified: true, specialization },
+            { new: true }
+        ).select('-password');
+
+        if (!user) return res.status(404).json({ message: 'User not found.' });
+
+        res.json({ success: true, user });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+module.exports = { registerUser, loginUser, getRecentUsers, updateProfile, verifyDoctor };
